@@ -9,14 +9,10 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/BurntSushi/toml"
+
+	"github.com/l-yc/discord-tofu/config"
 	"github.com/l-yc/discord-tofu/answer"
 )
-
-type Config struct {
-	Token				string
-	ClientID		string
-}
 
 type Flags struct {
 	ConfigFile	string
@@ -32,33 +28,17 @@ func init() {
 	flag.Parse()
 }
 
-// Reads info from config file
-func ReadConfig() Config {
-	configfile := flags.ConfigFile
-	log.Println("Reading from config file:", configfile)
-	_, err := os.Stat(configfile)
-	if err != nil {
-		log.Fatal("Config file is missing:", configfile)
-	}
-
-	var config Config
-	if _, err := toml.DecodeFile(configfile, &config); err != nil {
-		log.Fatal(err)
-	}
-	return config
-}
-
 func main() {
-	config := ReadConfig()
+	config.ReadConfig(flags.ConfigFile)
 
-	discord, err := discordgo.New("Bot " + config.Token)
+	discord, err := discordgo.New("Bot " + config.Cfg.Token)
 	if err != nil {
 		log.Println("Error creating discord session:", err)
 		return
 	}
 	// Invite the bot
 	fmt.Println("Invite the bot to your server by visiting the following link:")
-	fmt.Printf("https://discord.com/oauth2/authorize?client_id=%s&scope=bot", config.ClientID)
+	fmt.Printf("https://discord.com/oauth2/authorize?client_id=%s&scope=bot", config.Cfg.ClientID)
 	fmt.Println()
 
 	// Register the MessageCreate func as a callback for MessageCreate events.

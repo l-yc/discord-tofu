@@ -3,160 +3,44 @@ package answer
 import (
 	"github.com/bwmarrin/discordgo"
 
-	"errors"
-	"strings"
-	"strconv"
-	"math/rand"
-	"time"
+	"github.com/l-yc/discord-tofu/config"
+	"github.com/l-yc/discord-tofu/advice"
+	"github.com/l-yc/discord-tofu/nice"
 
-	"gorm.io/gorm"
-  "gorm.io/driver/sqlite"
+	"strings"
 )
 
-type User struct {
-	gorm.Model
-	ID				string
-	Username  string
-	NiceScore uint64
-}
-
 var (
-	db *gorm.DB
-	adviceAnswers = []string{
-		"It is certain",
-		"It is decidedly so",
-		"Without a doubt",
-		"Yes definitely",
-		"You may rely on it",
-		"As I see it yes",
-		"Most likely",
-		"Outlook good",
-		"Yes",
-		"Signs point to yes",
-		"Reply hazy try again",
-		"Ask again later",
-		"Better not tell you now",
-		"Cannot predict now",
-		"Concentrate and ask again",
-		"Don't count on it",
-		"My reply is no",
-		"My sources say no",
-		"Outlook not so good",
-		"Very doubtful",
-	}
+	WatchMap map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
+	FnMap		 map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
+	Help		 map[string][]string // TODO please use a struct
 )
 
 func init() {
-	// Seeding with the same value results in the same random sequence each run.
-	// For different numbers, seed with a different value, such as
-	// time.Now().UnixNano(), which yields a constantly-changing number.
-	rand.Seed(time.Now().UnixNano())
+	WatchMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
+	FnMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
+	Help = make(map[string][]string)
 
-	// for persisting data
-	var err error
-	db, err = gorm.Open(sqlite.Open("data.db"), &gorm.Config{})
-	if err != nil {
-    panic("failed to connect database")
-  }
+	for k, v := range advice.WatchMap {
+		WatchMap[k] = v
+	}
+	for k, v := range advice.FnMap {
+		FnMap[k] = v
+		Help[advice.PACKAGE] = append(Help[advice.PACKAGE], k)
+	}
 
-	// Migrate the schema
-  db.AutoMigrate(&User{})
-}
+	for k, v := range nice.WatchMap {
+		WatchMap[k] = v
+	}
+	for k, v := range nice.FnMap {
+		FnMap[k] = v
+		Help[nice.PACKAGE] = append(Help[nice.PACKAGE], k)
+	}
 
-func watchFor(s *discordgo.Session, m *discordgo.MessageCreate) bool {
-	ret := false
-
-	if strings.ToLower(m.Content) == "nice" {
-		var user User
-		result := db.First(&user, m.Author.ID)
-
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			s.ChannelMessageSend(m.ChannelID, "who are you?")
-		} else {
-			user.NiceScore += 1
-			db.Save(user)
-			s.ChannelMessageSend(m.ChannelID, "nice")
-			ret = true
+	WatchMap["<3"] = func (s *discordgo.Session, m *discordgo.MessageCreate) {
+		if m.Author.ID == config.Cfg.Owner {
+			s.ChannelMessageSend(m.ChannelID, "I love you too <3")
 		}
-	}
-
-	return ret
-}
-
-func registerUser(s *discordgo.Session, m *discordgo.MessageCreate) {
-	var user User
-	result := db.First(&user, m.Author.ID)
-
-	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		if user.Username != m.Author.Username {
-			user.Username = m.Author.Username
-			db.Save(&user)
-			s.ChannelMessageSend(m.ChannelID, "Got it. Nice name, " + m.Author.Username + "!")
-		} else {
-			s.ChannelMessageSend(m.ChannelID, "I already know you!")
-		}
-	} else {
-		db.Create(&User{
-			ID: m.Author.ID,
-			Username: m.Author.Username,
-			NiceScore: 0,
-		})
-		s.ChannelMessageSend(m.ChannelID, "Alright, registered " + m.Author.Username + "!")
-	}
-}
-
-func niceScoreUser(s *discordgo.Session, m *discordgo.MessageCreate) {
-	var user User
-	result := db.First(&user, m.Author.ID)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		s.ChannelMessageSend(m.ChannelID, "who are you?")
-		return
-	}
-
-	msg := "Score for " + m.Author.Username + " = " + strconv.FormatUint(user.NiceScore, 10)
-	s.ChannelMessageSend(m.ChannelID, msg)
-}
-
-func niceScoreBoard(s *discordgo.Session, m *discordgo.MessageCreate) {
-	var users []User
-	db.Order("nice_score desc").Find(&users).Limit(5)
-
-	msg := "Top " + strconv.Itoa(len(users)) + ":\n"
-	for i, u := range users {
-		msg += strconv.Itoa(i+1) + ". **" + u.Username + "**: "
-		msg += strconv.FormatUint(u.NiceScore, 10) + " nices\n"
-	}
-	s.ChannelMessageSend(m.ChannelID, msg)
-}
-
-func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	args := strings.Split(m.Content, " ")
-	switch args[0] {
-	// If the message is "ping" reply with "Pong!"
-	case "ping":
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
-		break
-	// If the message is "pong" reply with "Ping!"
-	case "pong":
-		s.ChannelMessageSend(m.ChannelID, "Ping!")
-		break
-	case "advice":
-		s.ChannelMessageSend(m.ChannelID, adviceAnswers[rand.Intn(len(adviceAnswers))])
-		break
-	case "hello":
-		s.ChannelMessageSend(m.ChannelID, "こんにちは, " + m.Author.Username + "-さん!")
-		break
-	case "whoami":
-		s.ChannelMessageSend(m.ChannelID, "You are " + m.Author.ID)
-		break
-	case "register":
-		registerUser(s, m)
-	case "niceScore":
-		niceScoreUser(s, m)
-		break
-	case "niceScoreBoard":
-		niceScoreBoard(s, m)
-		break
 	}
 }
 
@@ -170,7 +54,8 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	// Check if message exists in watchlist
-	if watchFor(s, m) {
+	if watch, exists := WatchMap[m.Content]; exists {
+		watch(s, m)
 		return
 	}
 
@@ -182,4 +67,44 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	m.Content = m.Content[2:]
 	// Handle the message!
 	handleMessage(s, m)
+}
+
+func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	args := strings.Split(m.Content, " ")
+
+	if fn, exists := FnMap[args[0]]; exists {
+		fn(s, m)
+		return
+	}
+
+	switch args[0] {
+	case "ping":
+		s.ChannelMessageSend(m.ChannelID, "Pong!")
+		break
+	case "pong":
+		s.ChannelMessageSend(m.ChannelID, "Ping!")
+		break
+	case "poke": // variety of health checks
+		s.ChannelMessageSend(m.ChannelID, "poke")
+		break
+	case "hello": // basic functionality
+		s.ChannelMessageSend(m.ChannelID, "こんにちは, " + m.Author.Username + "-さん!")
+		break
+	case "whoami":
+		s.ChannelMessageSend(m.ChannelID, "You are " + m.Author.ID)
+		break
+	case "help":
+		displayHelp(s, m)
+	}
+}
+
+func displayHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
+	msg := "__Help__\n"
+	for k, v := range Help {
+		msg += "**" + k + ":**\n"
+		for _, s := range v {
+			msg += "* " + s + "\n"
+		}
+	}
+	s.ChannelMessageSend(m.ChannelID, msg)
 }
