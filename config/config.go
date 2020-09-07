@@ -7,9 +7,10 @@ import (
 )
 
 type Config struct {
-	Token				string
-	ClientID		string
-	Owner				string
+	Token					string
+	ClientID			string
+	Owner					string
+	PicsDirectory	string
 }
 
 var Cfg Config

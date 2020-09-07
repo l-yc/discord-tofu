@@ -5,8 +5,10 @@ import (
 
 	"github.com/l-yc/discord-tofu/config"
 	"github.com/l-yc/discord-tofu/docs"
+
 	"github.com/l-yc/discord-tofu/advice"
 	"github.com/l-yc/discord-tofu/nice"
+	"github.com/l-yc/discord-tofu/pics"
 
 	"strings"
 )
@@ -34,6 +36,14 @@ func init() {
 	for k, v := range nice.CmdMap {
 		CmdMap[k] = v
 		docs.AddCommand(nice.PACKAGE, k, v)
+	}
+
+	for k, v := range pics.WatchMap {
+		WatchMap[k] = v
+	}
+	for k, v := range pics.CmdMap {
+		CmdMap[k] = v
+		docs.AddCommand(pics.PACKAGE, k, v)
 	}
 
 	docs.CompileHelp()
