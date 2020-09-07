@@ -4,6 +4,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 
 	"github.com/l-yc/discord-tofu/config"
+	"github.com/l-yc/discord-tofu/docs"
 	"github.com/l-yc/discord-tofu/advice"
 	"github.com/l-yc/discord-tofu/nice"
 
@@ -12,30 +13,30 @@ import (
 
 var (
 	WatchMap map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
-	FnMap		 map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
-	Help		 map[string][]string // TODO please use a struct
+	CmdMap	 map[string]docs.Command
 )
 
 func init() {
 	WatchMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
-	FnMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
-	Help = make(map[string][]string)
+	CmdMap = make(map[string]docs.Command)
 
 	for k, v := range advice.WatchMap {
 		WatchMap[k] = v
 	}
-	for k, v := range advice.FnMap {
-		FnMap[k] = v
-		Help[advice.PACKAGE] = append(Help[advice.PACKAGE], k)
+	for k, v := range advice.CmdMap {
+		CmdMap[k] = v
+		docs.AddCommand(advice.PACKAGE, k, v)
 	}
 
 	for k, v := range nice.WatchMap {
 		WatchMap[k] = v
 	}
-	for k, v := range nice.FnMap {
-		FnMap[k] = v
-		Help[nice.PACKAGE] = append(Help[nice.PACKAGE], k)
+	for k, v := range nice.CmdMap {
+		CmdMap[k] = v
+		docs.AddCommand(nice.PACKAGE, k, v)
 	}
+
+	docs.CompileHelp()
 
 	WatchMap["<3"] = func (s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == config.Cfg.Owner {
@@ -53,58 +54,47 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// Check if message exists in watchlist
-	if watch, exists := WatchMap[m.Content]; exists {
-		watch(s, m)
-		return
+	// Listen for commands that start with the prefix
+	if len(m.Content) >= 2 && m.Content[0:2] == "::" {
+		// Strip the prefix before handling
+		m.Content = m.Content[2:]
+		handleMessage(s, m)
+	} else {
+		// Otherwise, check if message exists in watchlist
+		if watch, exists := WatchMap[m.Content]; exists {
+			watch(s, m)
+		}
 	}
-
-	// Otherwise, ignore messages that doesn't start with the prefix
-	if len(m.Content) < 2 || m.Content[0:2] != "::" {
-		return
-	}
-	// Strip the prefix
-	m.Content = m.Content[2:]
-	// Handle the message!
-	handleMessage(s, m)
 }
 
 func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	args := strings.Split(m.Content, " ")
 
-	if fn, exists := FnMap[args[0]]; exists {
-		fn(s, m)
-		return
-	}
-
-	switch args[0] {
-	case "ping":
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
-		break
-	case "pong":
-		s.ChannelMessageSend(m.ChannelID, "Ping!")
-		break
-	case "poke": // variety of health checks
-		s.ChannelMessageSend(m.ChannelID, "poke")
-		break
-	case "hello": // basic functionality
-		s.ChannelMessageSend(m.ChannelID, "こんにちは, " + m.Author.Username + "-さん!")
-		break
-	case "whoami":
-		s.ChannelMessageSend(m.ChannelID, "You are " + m.Author.ID)
-		break
-	case "help":
-		displayHelp(s, m)
-	}
-}
-
-func displayHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
-	msg := "__Help__\n"
-	for k, v := range Help {
-		msg += "**" + k + ":**\n"
-		for _, s := range v {
-			msg += "* " + s + "\n"
+	if cmd, exists := CmdMap[args[0]]; exists {
+		cmd.Fn(s, m)
+	} else {
+		switch args[0] {
+		case "ping":
+			s.ChannelMessageSend(m.ChannelID, "Pong!")
+			break
+		case "pong":
+			s.ChannelMessageSend(m.ChannelID, "Ping!")
+			break
+		case "poke": // variety of health checks
+			s.ChannelMessageSend(m.ChannelID, "poke")
+			break
+		case "hello": // basic functionality
+			s.ChannelMessageSend(m.ChannelID, "こんにちは" + m.Author.Username + "-さん!")
+			break
+		case "whoami":
+			s.ChannelMessageSend(m.ChannelID, "You are " + m.Author.ID)
+			break
+		case "help":
+			s.ChannelMessageSend(m.ChannelID, docs.GetHelp())
+			break
+		default:
+			s.ChannelMessageSend(m.ChannelID, "なに？")
+			break
 		}
 	}
-	s.ChannelMessageSend(m.ChannelID, msg)
 }

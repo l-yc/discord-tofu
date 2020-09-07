@@ -2,6 +2,7 @@ package advice
 
 import (
 	"github.com/bwmarrin/discordgo"
+	"github.com/l-yc/discord-tofu/docs"
 
 	"math/rand"
 	"time"
@@ -12,7 +13,7 @@ var (
 	DESC = "Get advice from tofu!"
 
 	WatchMap map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
-	FnMap map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
+	CmdMap map[string]docs.Command
 
 	AdviceAnswers = []string{
 		"It is certain",
@@ -39,15 +40,18 @@ var (
 )
 
 func init() {
-	WatchMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
-	FnMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
+	WatchMap = make(map[string]func (s *discordgo.Session, m *discordgo.MessageCreate))
+	CmdMap = make(map[string]docs.Command)
 
 	// Seeding with the same value results in the same random sequence each run.
 	// For different numbers, seed with a different value, such as
 	// time.Now().UnixNano(), which yields a constantly-changing number.
 	rand.Seed(time.Now().UnixNano())
 
-	FnMap["advice"] = func (s *discordgo.Session, m *discordgo.MessageCreate) {
-		s.ChannelMessageSend(m.ChannelID, AdviceAnswers[rand.Intn(len(AdviceAnswers))])
+	CmdMap["advice"] = docs.Command{
+		Desc: "Seek advice from tofu!",
+		Fn: func (s *discordgo.Session, m *discordgo.MessageCreate) {
+			s.ChannelMessageSend(m.ChannelID, AdviceAnswers[rand.Intn(len(AdviceAnswers))])
+		},
 	}
 }

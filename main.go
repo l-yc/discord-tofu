@@ -23,7 +23,6 @@ var (
 )
 
 func init() {
-	//flag.StringVar(&Token, "t", "", "Bot Token")
 	flag.StringVar(&flags.ConfigFile, "c", "config.toml", "Config File")
 	flag.Parse()
 }

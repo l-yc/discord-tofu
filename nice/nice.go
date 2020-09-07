@@ -2,6 +2,7 @@ package nice
 
 import (
 	"github.com/bwmarrin/discordgo"
+	"github.com/l-yc/discord-tofu/docs"
 
 	"errors"
 	"strconv"
@@ -15,7 +16,7 @@ var (
 	DESC = "For the redditors."
 
 	WatchMap map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
-	FnMap map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
+	CmdMap map[string]docs.Command
 
 	db *gorm.DB
 )
@@ -29,7 +30,7 @@ type User struct {
 
 func init() {
 	WatchMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
-	FnMap = make(map[string]func(s *discordgo.Session, m *discordgo.MessageCreate))
+	CmdMap = make(map[string]docs.Command)
 
 	// Set up DB
 	connectDB()
@@ -37,9 +38,12 @@ func init() {
 	WatchMap["nice"] = watchNice
 	WatchMap["Nice"] = watchNice
 
-	FnMap["register"] = registerUser
-	FnMap["niceScore"] = niceScoreUser
-	FnMap["niceScoreBoard"] = niceScoreBoard
+	CmdMap["register"] = docs.Command{ 
+		Desc: "Registers user in the database.", Fn: registerUser }
+	CmdMap["niceScore"] = docs.Command{
+		Desc: "Displays nice score for the current user.", Fn: niceScoreUser }
+	CmdMap["niceScoreBoard"] = docs.Command{
+		Desc: "Displays nice scoreboard.", Fn: niceScoreBoard }
 }
 
 func connectDB() {
