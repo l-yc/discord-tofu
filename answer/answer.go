@@ -89,6 +89,9 @@ func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		case "whoami":
 			s.ChannelMessageSend(m.ChannelID, "You are " + m.Author.ID)
 			break
+		case "help!":
+			s.ChannelMessageSend(m.ChannelID, "がんばれ" + m.Author.Username + "！")
+			break
 		case "help":
 			s.ChannelMessageSend(m.ChannelID, docs.GetHelp())
 			break

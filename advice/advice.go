@@ -6,6 +6,8 @@ import (
 
 	"math/rand"
 	"time"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -14,8 +16,11 @@ var (
 
 	WatchMap map[string]func (s *discordgo.Session, m *discordgo.MessageCreate)
 	CmdMap map[string]docs.Command
+)
 
-	AdviceAnswers = []string{
+// internal constants
+var (
+	adviceAnswers = []string{
 		"It is certain",
 		"It is decidedly so",
 		"Without a doubt",
@@ -37,6 +42,11 @@ var (
 		"Outlook not so good",
 		"Very doubtful",
 	}
+
+	coinSides = []string{
+		"Head",
+		"Tail",
+	}
 )
 
 func init() {
@@ -51,7 +61,31 @@ func init() {
 	CmdMap["advice"] = docs.Command{
 		Desc: "Seek advice from tofu!",
 		Fn: func (s *discordgo.Session, m *discordgo.MessageCreate) {
-			s.ChannelMessageSend(m.ChannelID, AdviceAnswers[rand.Intn(len(AdviceAnswers))])
+			s.ChannelMessageSend(m.ChannelID, adviceAnswers[rand.Intn(len(adviceAnswers))])
+		},
+	}
+
+	CmdMap["coin"] = docs.Command{
+		Desc: "Tofu flips a coin!",
+		Fn: func (s *discordgo.Session, m *discordgo.MessageCreate) {
+			s.ChannelMessageSend(m.ChannelID, coinSides[rand.Intn(len(coinSides))])
+		},
+	}
+
+	CmdMap["dice"] = docs.Command{
+		Desc: "Tofu throws a dice with n-sides (default 6)!",
+		Fn: func (s *discordgo.Session, m *discordgo.MessageCreate) {
+			args := strings.Split(m.Content, " ")
+			sides := 6
+			if len(args) > 1 {
+				n, err := strconv.ParseInt(args[1], 10, 32); // if err, sides = 0
+				if err != nil || n <= 0 {
+					s.ChannelMessageSend(m.ChannelID, "Your dice very beautiful hor")
+					return
+				}
+				sides = int(n)
+			}
+			s.ChannelMessageSend(m.ChannelID, strconv.Itoa(rand.Intn(sides)+1))
 		},
 	}
 }
