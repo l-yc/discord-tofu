@@ -1,0 +1,3 @@
+[submodule "answer/autorespond/message-autoresponder"]
+	path = answer/autorespond/message-autoresponder
+	url = git@github.com:wernjie/message-autoresponder.git

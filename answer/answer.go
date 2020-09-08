@@ -10,6 +10,9 @@ import (
 	"github.com/l-yc/discord-tofu/nice"
 	"github.com/l-yc/discord-tofu/pics"
 
+	// watch only
+	"github.com/l-yc/discord-tofu/answer/autorespond"
+
 	"strings"
 )
 
@@ -124,7 +127,10 @@ func watchMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 
-		if mentioned {
+		autorespond.Input <- m.Content
+		if reply := <-autorespond.Output; reply != "\n" {
+			s.ChannelMessageSend(m.ChannelID, reply)
+		} else if mentioned {
 			s.ChannelMessageSend(m.ChannelID, "はい！")
 		}
 	}
