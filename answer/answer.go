@@ -71,9 +71,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		handleMessage(s, m)
 	} else {
 		// Otherwise, check if message exists in watchlist
-		if watch, exists := WatchMap[m.Content]; exists {
-			watch(s, m)
-		}
+		watchMessage(s, m)
 	}
 }
 
@@ -108,6 +106,26 @@ func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		default:
 			s.ChannelMessageSend(m.ChannelID, "なに？")
 			break
+		}
+	}
+}
+
+func watchMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if watch, exists := WatchMap[m.Content]; exists {
+		watch(s, m)
+	} else {
+		mentioned := false
+
+		for _, user := range m.Mentions {
+			if user.ID == s.State.User.ID {
+				mentioned = true
+				tag := "<@!" + s.State.User.ID + ">"
+				m.Content = strings.ReplaceAll(m.Content, tag, "@tofu")
+			}
+		}
+
+		if mentioned {
+			s.ChannelMessageSend(m.ChannelID, "はい！")
 		}
 	}
 }
