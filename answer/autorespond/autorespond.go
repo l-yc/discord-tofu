@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -35,6 +36,7 @@ func init() {
 		for {
 			select {
 			case msg := <-Input:
+				msg = strings.ReplaceAll(msg, "\n", ".")
 				//log.Println("Autoresponder received:", msg)
 				stdin.Write([]byte(msg+"\n"))
 				reply, err := rd.ReadString('\n')
