@@ -37,14 +37,14 @@ func init() {
 			select {
 			case msg := <-Input:
 				msg = strings.ReplaceAll(msg, "\n", ".")
-				//log.Println("Autoresponder received:", msg)
+				log.Println("Autoresponder received:", msg)
 				stdin.Write([]byte(msg+"\n"))
 				reply, err := rd.ReadString('\n')
 				if err != nil {
 					log.Fatal("Read Error:", err)
 					return
 				}
-				//log.Println("Autoresponder reply:", reply)
+				log.Println("Autoresponder reply:", reply)
 				Output <- reply
 				break
 			case <-Sigs:

@@ -9,6 +9,7 @@ import (
 	"github.com/l-yc/discord-tofu/advice"
 	"github.com/l-yc/discord-tofu/nice"
 	"github.com/l-yc/discord-tofu/pics"
+	"github.com/l-yc/discord-tofu/mips"
 
 	// watch only
 	"github.com/l-yc/discord-tofu/answer/autorespond"
@@ -49,11 +50,27 @@ func init() {
 		docs.AddCommand(pics.PACKAGE, k, v)
 	}
 
+	for k, v := range mips.WatchMap {
+		WatchMap[k] = v
+	}
+	for k, v := range mips.CmdMap {
+		CmdMap[k] = v
+		docs.AddCommand(mips.PACKAGE, k, v)
+	}
+
 	docs.CompileHelp()
 
 	WatchMap["<3"] = func (s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == config.Cfg.Owner {
 			s.ChannelMessageSend(m.ChannelID, "I love you too <3")
+		}
+	}
+
+	WatchMap["gn"] = func (s *discordgo.Session, m *discordgo.MessageCreate) {
+		if m.Author.ID == config.Cfg.Owner {
+			s.ChannelMessageSend(m.ChannelID, "Good night <3")
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "Night.")
 		}
 	}
 }
