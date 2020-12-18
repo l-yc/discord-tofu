@@ -6,6 +6,7 @@ import (
 
 	"errors"
 	"strconv"
+	"fmt"
 
 	"gorm.io/gorm"
   "gorm.io/driver/sqlite"
@@ -26,6 +27,13 @@ type User struct {
 	ID				string
 	Username  string
 	NiceScore uint64	// TODO: are we going to create a db for each package?
+	Guilds		[]*Guild `gorm:"many2many:user_guilds"`
+}
+
+type Guild struct {
+	gorm.Model
+	ID string
+	Users []*User `gorm:"many2many:user_guilds"`
 }
 
 func init() {
@@ -38,8 +46,8 @@ func init() {
 	WatchMap["nice"] = watchNice
 	WatchMap["Nice"] = watchNice
 
-	CmdMap["register"] = docs.Command{ 
-		Desc: "Registers user in the database.", Fn: registerUser }
+	CmdMap["register"] = docs.Command{
+		Desc: "Registers user in the database and server scoreboard.", Fn: registerUser }
 	CmdMap["niceScore"] = docs.Command{
 		Desc: "Displays nice score for the current user.", Fn: niceScoreUser }
 	CmdMap["niceScoreBoard"] = docs.Command{
@@ -53,6 +61,7 @@ func connectDB() {
     panic("failed to connect database")
   }
   db.AutoMigrate(&User{})
+  db.AutoMigrate(&Guild{})
 }
 
 func watchNice(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -80,11 +89,17 @@ func registerUser(s *discordgo.Session, m *discordgo.MessageCreate) {
 		} else {
 			s.ChannelMessageSend(m.ChannelID, "I already know you!")
 		}
+
+		db.Model(&user).Association("Guilds").Append(&Guild{ ID: m.GuildID })
+		s.ChannelMessageSend(m.ChannelID, "Updated your servers.")
 	} else {
 		db.Create(&User{
 			ID: m.Author.ID,
 			Username: m.Author.Username,
 			NiceScore: 0,
+			Guilds: []*Guild{&Guild{
+				ID: m.GuildID,
+			}},
 		})
 		s.ChannelMessageSend(m.ChannelID, "Alright, registered " + m.Author.Username + "!")
 	}
@@ -103,13 +118,26 @@ func niceScoreUser(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func niceScoreBoard(s *discordgo.Session, m *discordgo.MessageCreate) {
-	var users []User
-	db.Order("nice_score desc").Find(&users).Limit(5)
+	type Result struct {
+		Username string
+		NiceScore int
+	}
 
-	msg := "Top " + strconv.Itoa(len(users)) + ":\n"
-	for i, u := range users {
+	var results []Result
+
+	db.Table("user_guilds").
+		Select("users.username, users.nice_score").
+		Where("guild_id = ?", m.GuildID).
+		Joins("JOIN users on user_id = users.id").
+		Order("nice_score desc").
+		Limit(5).
+		Scan(&results)
+
+	msg := "Top " + strconv.Itoa(len(results)) + ":\n"
+	for i, u := range results {
+		fmt.Println(u.Username, u.NiceScore)
 		msg += strconv.Itoa(i+1) + ". **" + u.Username + "**: "
-		msg += strconv.FormatUint(u.NiceScore, 10) + " nices\n"
+		msg += strconv.Itoa(u.NiceScore) + " nices\n"
 	}
 	s.ChannelMessageSend(m.ChannelID, msg)
 }
