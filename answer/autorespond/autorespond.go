@@ -8,15 +8,20 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"fmt"
 )
 
 var (
+	Alive bool
 	Input chan string
 	Output chan string
 	Sigs chan os.Signal
 )
 
 func init() {
+	Alive = true
+
 	Input = make(chan string)
 	Output = make(chan string)
 
@@ -28,8 +33,9 @@ func init() {
 	stdout, _ := cmd.StdoutPipe()
 	rd := bufio.NewReader(stdout)
 
-	if err := cmd.Start(); err != nil {
-		log.Fatal("Buffer Error:", err)
+	fmt.Println("AAAAAAAAAAAAAAAAA")
+	if err := cmd.Start(); err != nil { // TODO ignored because it is handled below, improve this
+		//log.Fatal("Buffer Error:", err)
 	}
 
 	go func() {
@@ -41,7 +47,8 @@ func init() {
 				stdin.Write([]byte(msg+"\n"))
 				reply, err := rd.ReadString('\n')
 				if err != nil {
-					log.Fatal("Read Error:", err)
+					Output <- "Autoresponder is dead, please restart tofu"
+					//log.Fatal("Read Error:", err)
 					return
 				}
 				log.Println("Autoresponder reply:", reply)
