@@ -33,7 +33,6 @@ func init() {
 	stdout, _ := cmd.StdoutPipe()
 	rd := bufio.NewReader(stdout)
 
-	fmt.Println("AAAAAAAAAAAAAAAAA")
 	if err := cmd.Start(); err != nil { // TODO ignored because it is handled below, improve this
 		//log.Fatal("Buffer Error:", err)
 	}
@@ -63,4 +62,5 @@ func init() {
 	}()
 
 	log.Println("Autoresponder running")
+	fmt.Println("Autoresponder running")
 }

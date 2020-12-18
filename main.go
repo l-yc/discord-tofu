@@ -25,14 +25,6 @@ var (
 )
 
 func init() {
-	logFile := strings.ReplaceAll(time.Now().Format(time.Stamp), " ", "_") + ".log"
-	f, err := os.OpenFile(logFile, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer f.Close()
-	log.SetOutput(f)
-
 	flag.StringVar(&flags.ConfigFile, "c", "config.toml", "Config File")
 	flag.Parse()
 }
@@ -40,6 +32,21 @@ func init() {
 func main() {
 	config.ReadConfig(flags.ConfigFile)
 
+	// set up logging
+	filename := time.Now().Format(time.RFC3339)
+	filename = strings.ReplaceAll(filename, "-", "_")
+	filename = strings.ReplaceAll(filename, "T", "_")
+	filename = strings.ReplaceAll(filename, ":", "_")
+	filename = strings.ReplaceAll(filename, "+", "_")
+	logFile := filename + ".log"
+	f, err := os.OpenFile(logFile, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+	log.SetOutput(f)
+
+	// discord code
 	discord, err := discordgo.New("Bot " + config.Cfg.Token)
 	if err != nil {
 		log.Println("Error creating discord session:", err)
@@ -54,7 +61,8 @@ func main() {
 	discord.AddHandler(answer.MessageCreate)
 
 	// In this example, we only care about receiving message events.
-	discord.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuildMessages)
+	discord.Identify.Intents = discordgo.
+		MakeIntent(discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages)
 
 	// Open a websocket connection to Discord and begin listening.
 	err = discord.Open()
