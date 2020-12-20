@@ -28,7 +28,7 @@ func init() {
 	Sigs = make(chan os.Signal)
 	signal.Notify(Sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	cmd := exec.Command("python", "./answer/autorespond/message-autoresponder/main.py", "chat")
+	cmd := exec.Command("python", "./answer/autorespond/tofu-ai/main.py", "chat")
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
 	rd := bufio.NewReader(stdout)

@@ -7,7 +7,7 @@ pack: build
 		discord-tofu \
 		config.toml \
 		pics/assets/ \
-		answer/autorespond/message-autoresponder/*.{py,pickle}
+		answer/autorespond/tofu-ai/*.{py,pickle}
 
 install:
 	pip install --user nltk
