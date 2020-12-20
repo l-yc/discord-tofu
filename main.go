@@ -79,6 +79,9 @@ func main() {
 	// Monitor state
 	go func() {
 		log.Println("Listening for status updates")
+		brain.Input <- brain.BrainInput{
+			Type: brain.BrainInputTypeStatus,
+		}
 		for {
 			select {
 			case state := <-brain.State:

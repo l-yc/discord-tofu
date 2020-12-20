@@ -23,7 +23,7 @@ var (
 
 const (
 	IDLE_DURATION = 15 * time.Second
-	POLL_INTERVAL = 15 * time.Second
+	POLL_INTERVAL = 15 * time.Minute
 )
 
 func parseReply(bytes []byte) (AIReply, error) {
@@ -120,6 +120,7 @@ func init() {
 					} else {
 						log.Println("Autoresponder reply:", reply.Response)
 						Output <- BrainOutput{ Error: nil, Content: reply.Response }
+						mood = reply.StatusMessage
 						if reply.Response != "" {
 							log.Println("Resetting idle timer")
 							State <- BrainState{ Mood: mood, Status: BrainStateStatusOnline }
