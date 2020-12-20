@@ -6,7 +6,6 @@ import (
 
 	"errors"
 	"strconv"
-	"fmt"
 
 	"gorm.io/gorm"
   "gorm.io/driver/sqlite"
@@ -135,7 +134,6 @@ func niceScoreBoard(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	msg := "Top " + strconv.Itoa(len(results)) + ":\n"
 	for i, u := range results {
-		fmt.Println(u.Username, u.NiceScore)
 		msg += strconv.Itoa(i+1) + ". **" + u.Username + "**: "
 		msg += strconv.Itoa(u.NiceScore) + " nices\n"
 	}
