@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 var (
@@ -18,6 +19,11 @@ var (
 	Output chan BrainOutput
 	Sigs chan os.Signal
 	State chan BrainState
+)
+
+const (
+	IDLE_DURATION = 15 * time.Second
+	POLL_INTERVAL = 15 * time.Second
 )
 
 func parseReply(bytes []byte) (AIReply, error) {
@@ -57,13 +63,30 @@ func init() {
 		//log.Fatal("Buffer Error:", err)
 	}
 
-	var mutex sync.Mutex
+	State = make(chan BrainState, 1) // must be buffered, because receiver might not be ready
+	mood := "Just woke up!"
+	status := BrainStateStatusOnline
 
+	State <- BrainState{ Mood: mood, Status: status }
+	idleTimer := time.AfterFunc(IDLE_DURATION, func() {
+		status = BrainStateStatusIdle
+		State <- BrainState{ Mood: mood, Status: status }
+	})
+
+	var mutex sync.Mutex
 	go func() {
 		for {
 			select {
 			case input := <-Input:
 				mutex.Lock()
+
+				if input.Type == BrainInputTypeMessage {
+					State <- BrainState{ Mood: mood, Status: BrainStateStatusOnline }
+					if !idleTimer.Stop() {
+						<-idleTimer.C
+					}
+					idleTimer.Reset(IDLE_DURATION)
+				}
 
 				msg := strings.ReplaceAll(input.Content, "\n", ".")
 				log.Println("Autoresponder received:", msg)
@@ -76,9 +99,10 @@ func init() {
 						}[input.Type],
 					Contents: input.Content,
 				})
-				log.Println(string(bytes[:]))
+				log.Println("Send to autoresponder:", string(bytes[:]))
 				if err != nil {
 					log.Println("Failed to marshal message", err)
+					mutex.Unlock()
 					break
 				}
 
@@ -89,13 +113,20 @@ func init() {
 				if err != nil {
 					Output <- BrainOutput{ Error: err, Content: "Autoresponder is dead, please restart tofu" }
 					log.Println("Autoresponder error:", err)
+					mutex.Unlock()
 					return
 				}
 
 				// parse the json reply
 				if reply, err := parseReply(bytes); err == nil {
-					log.Println("Autoresponder reply:", reply.Response)
-					Output <- BrainOutput{ Error: nil, Content: reply.Response }
+					if input.Type == BrainInputTypeStatus {
+						log.Println("Autoresponder state:", reply.StatusMessage)
+						mood = reply.StatusMessage
+						State <- BrainState{ Mood: mood, Status: status }
+					} else {
+						log.Println("Autoresponder reply:", reply.Response)
+						Output <- BrainOutput{ Error: nil, Content: reply.Response }
+					}
 				} else {
 					Output <- BrainOutput{ Error: err, Content: err.Error() }
 				}
@@ -110,22 +141,21 @@ func init() {
 		}
 	}()
 
-	//ticker := time.NewTicker(time.Second)
-	//go func() {
-	//	defer ticker.Stop()
-	//	for {
-	//		select {
-	//		case t := <-ticker.C:
-	//			mutex.Lock()
-
-	//			log.Println("Current time: ", t)
-
-	//			mutex.Unlock()
-	//		case <-Sigs:
-	//			return
-	//		}
-	//	}
-	//}()
+	ticker := time.NewTicker(POLL_INTERVAL)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				Input <- BrainInput{
+					Type: BrainInputTypeStatus,
+				}
+				break
+			case <-Sigs:
+				return
+			}
+		}
+	}()
 
 	log.Println("Autoresponder running")
 }
