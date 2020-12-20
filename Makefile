@@ -10,7 +10,7 @@ pack: build
 		answer/autorespond/tofu-ai/*.{py,pickle}
 
 install:
-	pip install --user nltk
+	python -m pip install --user nltk
 	python -c "import nltk;\
 		nltk.download('punkt');\
 		nltk.download('wordnet');\
