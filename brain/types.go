@@ -3,6 +3,7 @@ package brain
 // interface with tofu-ai
 const (
 	AIMessageTypeGroup = "group message"
+	AIMessageTypeDirect = "private message"
 	AIMessageTypeStatus = "status"
 )
 type AIMessage struct {
@@ -27,7 +28,8 @@ type AIError struct {
 
 // brain io interface
 const (
-	BrainInputTypeMessage = iota
+	BrainInputTypeMessageGroup = iota
+	BrainInputTypeMessageDirect
 	BrainInputTypeStatus
 )
 type BrainInput struct {

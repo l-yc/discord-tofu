@@ -69,6 +69,7 @@ func init() {
 
 	State <- BrainState{ Mood: mood, Status: status }
 	idleTimer := time.AfterFunc(IDLE_DURATION, func() {
+		log.Println("Setting idle status")
 		status = BrainStateStatusIdle
 		State <- BrainState{ Mood: mood, Status: status }
 	})
@@ -80,14 +81,6 @@ func init() {
 			case input := <-Input:
 				mutex.Lock()
 
-				if input.Type == BrainInputTypeMessage {
-					State <- BrainState{ Mood: mood, Status: BrainStateStatusOnline }
-					if !idleTimer.Stop() {
-						<-idleTimer.C
-					}
-					idleTimer.Reset(IDLE_DURATION)
-				}
-
 				msg := strings.ReplaceAll(input.Content, "\n", ".")
 				log.Println("Autoresponder received:", msg)
 
@@ -95,6 +88,7 @@ func init() {
 				bytes, err := json.Marshal(AIMessage{
 					Type: []string{
 							AIMessageTypeGroup,
+							AIMessageTypeDirect,
 							AIMessageTypeStatus,
 						}[input.Type],
 					Contents: input.Content,
@@ -126,6 +120,12 @@ func init() {
 					} else {
 						log.Println("Autoresponder reply:", reply.Response)
 						Output <- BrainOutput{ Error: nil, Content: reply.Response }
+						if reply.Response != "" {
+							log.Println("Resetting idle timer")
+							State <- BrainState{ Mood: mood, Status: BrainStateStatusOnline }
+							idleTimer.Stop()
+							idleTimer.Reset(IDLE_DURATION)
+						}
 					}
 				} else {
 					Output <- BrainOutput{ Error: err, Content: err.Error() }

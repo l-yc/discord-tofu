@@ -89,7 +89,7 @@ func main() {
 					discordgo.StatusDoNotDisturb,
 				}
 
-				err = discord.UpdateStatusComplex(discordgo.UpdateStatusData{
+				err := discord.UpdateStatusComplex(discordgo.UpdateStatusData{
 					Game: &discordgo.Game{
 						Name: "::help | " + state.Mood,
 						Type: discordgo.GameTypeWatching,

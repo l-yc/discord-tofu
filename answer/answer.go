@@ -144,11 +144,17 @@ func watchMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 
+		var Type int
+		if m.GuildID == "" {
+			Type = brain.BrainInputTypeMessageDirect
+		} else {
+			Type = brain.BrainInputTypeMessageGroup
+		}
 		brain.Input <- brain.BrainInput{
-			Type: brain.BrainInputTypeMessage,
+			Type: Type,
 			Content: m.Content,
 		}
-		if reply := <-brain.Output; reply.Content != "\n" {
+		if reply := <-brain.Output; reply.Content != "" {
 			s.ChannelMessageSend(m.ChannelID, reply.Content)
 		} else if mentioned {
 			s.ChannelMessageSend(m.ChannelID, "はい！")
