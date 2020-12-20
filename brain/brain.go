@@ -1,4 +1,4 @@
-package autorespond
+package brain
 
 import (
 	"bufio"
@@ -11,36 +11,14 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
-
-	"fmt"
 )
 
 var (
-	Alive bool
-	Input chan string
-	Output chan string
+	Input chan BrainInput
+	Output chan BrainOutput
 	Sigs chan os.Signal
+	State chan BrainState
 )
-
-type AIMessage struct {
-	Type string `json:"type"`
-	Contents string `json:"contents,omitempty"`
-}
-
-type AIReply struct {
-	StatusMessage string `json:"statusMessage"`
-	PrimaryMood float32 `json:"primaryMood"`
-	MoodStability float32 `json:"moodStability"`
-	ExposedPositivity float32 `json:"exposedPositivity"`
-	PositivityOverload bool `json:"positivityOverload"`
-	Response string `json:"response"`
-}
-
-type AIError struct {
-	ErrorMessage string `json:"error"`
-	Response *string `json:"response"` // can be null
-}
 
 func parseReply(bytes []byte) (AIReply, error) {
 	var reply AIReply
@@ -64,16 +42,13 @@ func parseReply(bytes []byte) (AIReply, error) {
 }
 
 func init() {
-	Alive = true
-
-	Input = make(chan string)
-	Output = make(chan string)
+	Input = make(chan BrainInput)
+	Output = make(chan BrainOutput)
 
 	Sigs = make(chan os.Signal)
 	signal.Notify(Sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	//cmd := exec.Command("python", "./answer/autorespond/tofu-ai/main.py", "chat")
-	cmd := exec.Command("python", "./answer/autorespond/tofu-ai/main.py", "jsonio")
+	cmd := exec.Command("python", "./brain/tofu-ai/main.py", "jsonio")
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
 	rd := bufio.NewReader(stdout)
@@ -87,16 +62,19 @@ func init() {
 	go func() {
 		for {
 			select {
-			case msg := <-Input:
+			case input := <-Input:
 				mutex.Lock()
 
-				msg = strings.ReplaceAll(msg, "\n", ".")
+				msg := strings.ReplaceAll(input.Content, "\n", ".")
 				log.Println("Autoresponder received:", msg)
 
 				// build the json message
 				bytes, err := json.Marshal(AIMessage{
-					Type: "group message",
-					Contents: msg,
+					Type: []string{
+							AIMessageTypeGroup,
+							AIMessageTypeStatus,
+						}[input.Type],
+					Contents: input.Content,
 				})
 				log.Println(string(bytes[:]))
 				if err != nil {
@@ -109,7 +87,7 @@ func init() {
 				// read the json reply 
 				bytes, err = rd.ReadBytes(byte('\n'))
 				if err != nil {
-					Output <- "Autoresponder is dead, please restart tofu"
+					Output <- BrainOutput{ Error: err, Content: "Autoresponder is dead, please restart tofu" }
 					log.Println("Autoresponder error:", err)
 					return
 				}
@@ -117,9 +95,9 @@ func init() {
 				// parse the json reply
 				if reply, err := parseReply(bytes); err == nil {
 					log.Println("Autoresponder reply:", reply.Response)
-					Output <- reply.Response
+					Output <- BrainOutput{ Error: nil, Content: reply.Response }
 				} else {
-					Output <- err.Error()
+					Output <- BrainOutput{ Error: err, Content: err.Error() }
 				}
 
 				mutex.Unlock()
@@ -150,5 +128,4 @@ func init() {
 	//}()
 
 	log.Println("Autoresponder running")
-	fmt.Println("Autoresponder running")
 }

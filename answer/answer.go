@@ -12,7 +12,7 @@ import (
 	"github.com/l-yc/discord-tofu/mips"
 
 	// watch only
-	"github.com/l-yc/discord-tofu/answer/autorespond"
+	"github.com/l-yc/discord-tofu/brain"
 
 	"strings"
 )
@@ -144,9 +144,12 @@ func watchMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 		}
 
-		autorespond.Input <- m.Content
-		if reply := <-autorespond.Output; reply != "\n" {
-			s.ChannelMessageSend(m.ChannelID, reply)
+		brain.Input <- brain.BrainInput{
+			Type: brain.BrainInputTypeMessage,
+			Content: m.Content,
+		}
+		if reply := <-brain.Output; reply.Content != "\n" {
+			s.ChannelMessageSend(m.ChannelID, reply.Content)
 		} else if mentioned {
 			s.ChannelMessageSend(m.ChannelID, "はい！")
 		}
