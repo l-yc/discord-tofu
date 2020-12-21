@@ -22,7 +22,7 @@ var (
 )
 
 const (
-	IDLE_DURATION = 15 * time.Second
+	IDLE_DURATION = 10 * time.Minute
 	POLL_INTERVAL = 15 * time.Minute
 )
 
