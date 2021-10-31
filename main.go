@@ -1,119 +1,130 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"log"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
+    "flag"
+    "fmt"
+    "log"
+    "os"
+    "os/signal"
+    "path/filepath"
+    "strings"
+    "syscall"
+    "time"
 
-	"github.com/bwmarrin/discordgo"
+    "github.com/bwmarrin/discordgo"
 
-	"github.com/l-yc/discord-tofu/config"
-	"github.com/l-yc/discord-tofu/brain"
-	"github.com/l-yc/discord-tofu/answer"
+    "github.com/l-yc/discord-tofu/config"
+    "github.com/l-yc/discord-tofu/brain"
+    "github.com/l-yc/discord-tofu/answer"
 )
 
 type Flags struct {
-	ConfigFile	string
+    ConfigFile	string
 }
 
 var (
-	flags	Flags
+    flags	Flags
 )
 
 func init() {
-	flag.StringVar(&flags.ConfigFile, "c", "config.toml", "Config File")
-	flag.Parse()
+    flag.StringVar(&flags.ConfigFile, "c", "config.toml", "Config File")
+    flag.Parse()
 }
 
 func main() {
-	config.ReadConfig(flags.ConfigFile)
+    config.ReadConfig(flags.ConfigFile)
 
-	// set up logging
-	filename := time.Now().Format(time.RFC3339)
-	filename = strings.ReplaceAll(filename, "-", "_")
-	filename = strings.ReplaceAll(filename, "T", "_")
-	filename = strings.ReplaceAll(filename, ":", "_")
-	filename = strings.ReplaceAll(filename, "+", "_")
-	logFile := filename + ".log"
-	f, err := os.OpenFile(logFile, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer f.Close()
-	log.SetOutput(f)
+    // set up logging
+    filename := time.Now().Format(time.RFC3339)
+    filename = strings.ReplaceAll(filename, "-", "_")
+    filename = strings.ReplaceAll(filename, "T", "_")
+    filename = strings.ReplaceAll(filename, ":", "_")
+    filename = strings.ReplaceAll(filename, "+", "_")
 
-	// discord code
-	discord, err := discordgo.New("Bot " + config.Cfg.Token)
-	if err != nil {
-		log.Println("Error creating discord session:", err)
-		return
-	}
-	// Invite the bot
-	fmt.Println("Invite the bot to your server by visiting the following link:")
-	fmt.Printf("https://discord.com/oauth2/authorize?client_id=%s&scope=bot", config.Cfg.ClientID)
-	fmt.Println()
+    dir := config.Cfg.LogsDirectory
+    if _, err := os.Stat(dir); os.IsNotExist(err) {
+        err = os.Mkdir(dir, 0755)
+        if err != nil {
+            log.Fatalf("Cannot create logs directory: %v", err)
+        }
+        log.Printf("Created logs directory at %s", dir)
+    }
 
-	// Register the MessageCreate func as a callback for MessageCreate events.
-	discord.AddHandler(answer.MessageCreate)
+    logFile := filepath.Join(dir, filename + ".log")
+    f, err := os.OpenFile(logFile, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+    if err != nil {
+        log.Fatalf("Error opening file: %v", err)
+    }
+    defer f.Close()
+    log.SetOutput(f)
 
-	// In this example, we only care about receiving message events.
-	discord.Identify.Intents = discordgo.
-		MakeIntent(discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages)
+    // discord code
+    discord, err := discordgo.New("Bot " + config.Cfg.Token)
+    if err != nil {
+        log.Println("Error creating discord session:", err)
+        return
+    }
+    // Invite the bot
+    fmt.Println("Invite the bot to your server by visiting the following link:")
+    fmt.Printf("https://discord.com/oauth2/authorize?client_id=%s&scope=bot", config.Cfg.ClientID)
+    fmt.Println()
 
-	// Open a websocket connection to Discord and begin listening.
-	err = discord.Open()
-	if err != nil {
-		log.Println("error opening connection,", err)
-		return
-	}
+    // Register the MessageCreate func as a callback for MessageCreate events.
+    discord.AddHandler(answer.MessageCreate)
 
-	// Monitor interrupt to exit
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+    // In this example, we only care about receiving message events.
+    discord.Identify.Intents = discordgo.
+    MakeIntent(discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages)
 
-	// Monitor state
-	go func() {
-		log.Println("Listening for status updates")
-		brain.Input <- brain.BrainInput{
-			Type: brain.BrainInputTypeStatus,
-		}
-		for {
-			select {
-			case state := <-brain.State:
-				log.Println("Update state", state)
-				statuses := []discordgo.Status{
-					discordgo.StatusOnline,
-					discordgo.StatusIdle,
-					discordgo.StatusDoNotDisturb,
-				}
+    // Open a websocket connection to Discord and begin listening.
+    err = discord.Open()
+    if err != nil {
+        log.Println("error opening connection,", err)
+        return
+    }
 
-				err := discord.UpdateStatusComplex(discordgo.UpdateStatusData{
-					Game: &discordgo.Game{
-						Name: "::help | " + state.Mood,
-						Type: discordgo.GameTypeWatching,
-					},
-					Status: string(statuses[state.Status]),
-				})
+    // Monitor interrupt to exit
+    sc := make(chan os.Signal, 1)
+    signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 
-				if err != nil {
-					log.Println("Error updating status:", err)
-				}
-				break
-			case <-sc:
-				return
-			}
-		}
-	}()
+    // Monitor state
+    go func() {
+        log.Println("Listening for status updates")
+        brain.Input <- brain.BrainInput{
+            Type: brain.BrainInputTypeStatus,
+        }
+        for {
+            select {
+            case state := <-brain.State:
+                log.Println("Update state", state)
+                statuses := []discordgo.Status{
+                    discordgo.StatusOnline,
+                    discordgo.StatusIdle,
+                    discordgo.StatusDoNotDisturb,
+                }
 
-	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
-	<-sc
+                err := discord.UpdateStatusComplex(discordgo.UpdateStatusData{
+                    Game: &discordgo.Game{
+                        Name: "::help | " + state.Mood,
+                        Type: discordgo.GameTypeWatching,
+                    },
+                    Status: string(statuses[state.Status]),
+                })
 
-	// Cleanly close down the Discord session.
-	discord.Close()
+                if err != nil {
+                    log.Println("Error updating status:", err)
+                }
+                break
+            case <-sc:
+                return
+            }
+        }
+    }()
+
+    // Wait here until CTRL-C or other term signal is received.
+    fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+    <-sc
+
+    // Cleanly close down the Discord session.
+    discord.Close()
 }

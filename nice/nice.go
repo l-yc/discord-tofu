@@ -1,14 +1,18 @@
 package nice
 
 import (
-	"github.com/bwmarrin/discordgo"
-	"github.com/l-yc/discord-tofu/docs"
+    "errors"
+    "log"
+    "os"
+    "path/filepath"
+    "strconv"
 
-	"errors"
-	"strconv"
+    "github.com/bwmarrin/discordgo"
+    "gorm.io/gorm"
+    "gorm.io/driver/sqlite"
 
-	"gorm.io/gorm"
-  "gorm.io/driver/sqlite"
+    "github.com/l-yc/discord-tofu/docs"
+    "github.com/l-yc/discord-tofu/config"
 )
 
 var (
@@ -54,13 +58,23 @@ func init() {
 }
 
 func connectDB() {
-	var err error
-	db, err = gorm.Open(sqlite.Open("data.db"), &gorm.Config{})
-	if err != nil {
-    panic("failed to connect database")
-  }
-  db.AutoMigrate(&User{})
-  db.AutoMigrate(&Guild{})
+    dir := config.Cfg.DataDirectory
+    if _, err := os.Stat(dir); os.IsNotExist(err) {
+        err = os.Mkdir(dir, 0755)
+        if err != nil {
+            log.Fatalf("Cannot create data directory: %v", err)
+        }
+        log.Printf("Created data directory at %s", dir)
+    }
+
+    file := filepath.Join(dir, "data.db")
+    var err error
+    db, err = gorm.Open(sqlite.Open(file), &gorm.Config{})
+    if err != nil {
+        log.Fatalf("Failed to connect database")
+    }
+    db.AutoMigrate(&User{})
+    db.AutoMigrate(&Guild{})
 }
 
 func watchNice(s *discordgo.Session, m *discordgo.MessageCreate) {
