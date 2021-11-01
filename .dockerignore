@@ -1,0 +1,12 @@
+# Common
+README.md
+Dockerfile
+
+# Git
+.git
+.gitignore
+.gitmodules
+
+# App
+data
+logs
